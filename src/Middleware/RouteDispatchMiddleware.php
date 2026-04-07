@@ -6,6 +6,7 @@ namespace NIH\Router\Middleware;
 
 use Closure;
 use NIH\Container\Instantiator;
+use NIH\MiddlewareDispatcher\DispatchControl;
 use NIH\MiddlewareDispatcher\MiddlewareDispatcher;
 use NIH\Router\Middleware\Attribute\After;
 use NIH\Router\Middleware\Attribute\Before;
@@ -75,14 +76,35 @@ final readonly class RouteDispatchMiddleware implements MiddlewareInterface
 
         $request = $this->applyMatchContext($request, $matchResult);
         $actionHandler = $this->getActionHandler($target, $matchResult->method);
-        $dispatcher = new MiddlewareDispatcher(
-            $this->container,
-            [
-                ...$matchResult->middlewares,
-                ...$this->targetMiddlewares($target),
-            ],
-            $actionHandler,
-        );
+        $routeMiddlewares = [
+            ...$matchResult->middlewares,
+            ...$this->targetMiddlewares($target),
+        ];
+        $dispatchControl = $request->getAttribute(DispatchControl::class);
+
+        if ($dispatchControl instanceof DispatchControl) {
+            $dispatchControl->prepend([
+                ...$routeMiddlewares,
+                new class($actionHandler) implements MiddlewareInterface
+                {
+                    public function __construct(
+                        private readonly RequestHandlerInterface $actionHandler,
+                    ) {
+                    }
+
+                    public function process(
+                        ServerRequestInterface $request,
+                        RequestHandlerInterface $handler,
+                    ): ResponseInterface {
+                        return $this->actionHandler->handle($request);
+                    }
+                },
+            ]);
+
+            return $handler->handle($request);
+        }
+
+        $dispatcher = new MiddlewareDispatcher($this->container, $routeMiddlewares, $actionHandler);
 
         return $dispatcher->handle($request);
     }
