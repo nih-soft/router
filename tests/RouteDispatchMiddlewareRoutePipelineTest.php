@@ -6,8 +6,9 @@ namespace NIH\Router\Tests;
 
 use NIH\Container\Container;
 use NIH\Container\ContainerConfig;
-use NIH\MiddlewareDispatcher\DispatchControl;
 use NIH\MiddlewareDispatcher\MiddlewareDispatcher;
+use NIH\MiddlewareDispatcher\Pipeline;
+use NIH\MiddlewareDispatcher\PipelineControl;
 use NIH\Router\Middleware\RouteDispatchMiddleware;
 use NIH\Router\RouteMatchResult;
 use NIH\Router\RouteMatcher;
@@ -163,10 +164,10 @@ final class RouteDispatchMiddlewareRoutePipelineTest extends TestCase
                 $current = is_string($current) && $current !== ''
                     ? $current . '>mutator'
                     : 'mutator';
-                $control = $request->getAttribute(DispatchControl::class);
+                $control = $request->getAttribute(PipelineControl::class);
 
-                if (!$control instanceof DispatchControl) {
-                    throw new \LogicException('Dispatch control attribute is missing.');
+                if (!$control instanceof PipelineControl) {
+                    throw new \LogicException('Pipeline control attribute is missing.');
                 }
 
                 $control->prepend($this->dynamicMiddleware);
@@ -191,47 +192,49 @@ final class RouteDispatchMiddlewareRoutePipelineTest extends TestCase
         $routeDispatchMiddleware = $this->createMiddleware($container, $responseFactory);
         $dispatcher = new MiddlewareDispatcher(
             $container,
-            [
-                new class($trace) implements MiddlewareInterface {
-                    public function __construct(
-                        private readonly DispatchTrace $trace,
-                    ) {
-                    }
+            new Pipeline(
+                [
+                    new class($trace) implements MiddlewareInterface {
+                        public function __construct(
+                            private readonly DispatchTrace $trace,
+                        ) {
+                        }
 
-                    public function process(
-                        ServerRequestInterface $request,
-                        RequestHandlerInterface $handler,
-                    ): ResponseInterface {
-                        $this->trace->add('outer:enter');
-                        $response = $handler->handle($request);
-                        $this->trace->add('outer:exit');
+                        public function process(
+                            ServerRequestInterface $request,
+                            RequestHandlerInterface $handler,
+                        ): ResponseInterface {
+                            $this->trace->add('outer:enter');
+                            $response = $handler->handle($request);
+                            $this->trace->add('outer:exit');
 
-                        return $response;
+                            return $response;
+                        }
+                    },
+                    $routeDispatchMiddleware,
+                    new class($trace) implements MiddlewareInterface {
+                        public function __construct(
+                            private readonly DispatchTrace $trace,
+                        ) {
+                        }
+
+                        public function process(
+                            ServerRequestInterface $request,
+                            RequestHandlerInterface $handler,
+                        ): ResponseInterface {
+                            $this->trace->add('downstream:enter');
+
+                            throw new \LogicException('Downstream middleware must not be called.');
+                        }
+                    },
+                ],
+                new class implements RequestHandlerInterface {
+                    public function handle(ServerRequestInterface $request): ResponseInterface
+                    {
+                        throw new \LogicException('Final handler must not be called.');
                     }
                 },
-                $routeDispatchMiddleware,
-                new class($trace) implements MiddlewareInterface {
-                    public function __construct(
-                        private readonly DispatchTrace $trace,
-                    ) {
-                    }
-
-                    public function process(
-                        ServerRequestInterface $request,
-                        RequestHandlerInterface $handler,
-                    ): ResponseInterface {
-                        $this->trace->add('downstream:enter');
-
-                        throw new \LogicException('Downstream middleware must not be called.');
-                    }
-                },
-            ],
-            new class implements RequestHandlerInterface {
-                public function handle(ServerRequestInterface $request): ResponseInterface
-                {
-                    throw new \LogicException('Final handler must not be called.');
-                }
-            },
+            ),
         );
 
         $response = $dispatcher->handle(

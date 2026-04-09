@@ -23,13 +23,13 @@
   "require": {
     "php": "8.4 - 8.5",
     "ext-ctype": "*",
+    "nih/container": "^0.1",
+    "nih/middleware-dispatcher": "^0.2.0",
     "psr/container": "^2.0",
     "psr/http-factory": "^1.1",
     "psr/http-message": "^2.0",
-    "psr/http-server-middleware": "^1.0",
     "psr/http-server-handler": "^1.0",
-    "nih/container": "^0.1",
-    "nih/middleware-dispatcher": "^0.1.2"
+    "psr/http-server-middleware": "^1.0"
   },
   "require-dev": {
     "phpunit/phpunit": "^11.5"

@@ -6,8 +6,9 @@ namespace NIH\Router\Middleware;
 
 use Closure;
 use NIH\Container\Instantiator;
-use NIH\MiddlewareDispatcher\DispatchControl;
 use NIH\MiddlewareDispatcher\MiddlewareDispatcher;
+use NIH\MiddlewareDispatcher\Pipeline;
+use NIH\MiddlewareDispatcher\PipelineControl;
 use NIH\Router\Middleware\Attribute\After;
 use NIH\Router\Middleware\Attribute\Before;
 use NIH\Router\Middleware\Attribute\Middleware as MiddlewareAttribute;
@@ -80,9 +81,9 @@ final readonly class RouteDispatchMiddleware implements MiddlewareInterface
             ...$matchResult->middlewares,
             ...$this->targetMiddlewares($target),
         ];
-        $dispatchControl = $request->getAttribute(DispatchControl::class);
+        $dispatchControl = $request->getAttribute(PipelineControl::class);
 
-        if ($dispatchControl instanceof DispatchControl) {
+        if ($dispatchControl instanceof PipelineControl) {
             $dispatchControl->prepend([
                 ...$routeMiddlewares,
                 new class($actionHandler) implements MiddlewareInterface
@@ -104,7 +105,10 @@ final readonly class RouteDispatchMiddleware implements MiddlewareInterface
             return $handler->handle($request);
         }
 
-        $dispatcher = new MiddlewareDispatcher($this->container, $routeMiddlewares, $actionHandler);
+        $dispatcher = new MiddlewareDispatcher(
+            $this->container,
+            new Pipeline($routeMiddlewares, $actionHandler),
+        );
 
         return $dispatcher->handle($request);
     }
