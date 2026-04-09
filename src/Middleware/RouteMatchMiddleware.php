@@ -16,6 +16,7 @@ final readonly class RouteMatchMiddleware implements MiddlewareInterface
     public function __construct(
         private RouteMatcher $matcher,
         private string $attributeName = RouteMatchResult::class,
+        private bool $useRequestSite = true,
     ) {
     }
 
@@ -35,6 +36,10 @@ final readonly class RouteMatchMiddleware implements MiddlewareInterface
 
     private function siteFromRequest(ServerRequestInterface $request): string
     {
+        if (!$this->useRequestSite) {
+            return '';
+        }
+
         $uri = $request->getUri();
         $scheme = $uri->getScheme();
         $authority = $uri->getAuthority();

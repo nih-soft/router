@@ -62,17 +62,23 @@ Useful reading of this pipeline:
 Constructor:
 
 ```php
-new RouteMatchMiddleware(RouteMatcher $matcher, string $attributeName = RouteMatchResult::class)
+new RouteMatchMiddleware(
+    RouteMatcher $matcher,
+    string $attributeName = RouteMatchResult::class,
+    bool $useRequestSite = true,
+)
 ```
 
 What it reads from the request:
 
 - path from `getUri()->getPath()`
 - HTTP method from `getMethod()`
-- site from `scheme://authority` when both are available
+- site from `scheme://authority` when both are available and `$useRequestSite` is `true`
 - query params from `getQueryParams()`
 
 If the request URI is relative and has no `scheme://authority`, matching still uses the default site tree, but site strategies are not executed.
+
+If `$useRequestSite` is `false`, matching always uses an empty runtime site even when the request URI is absolute. That means site-specific trees are ignored unless the matcher resolves through the default site tree, and site strategies are not executed.
 
 What it writes:
 
@@ -90,6 +96,7 @@ Example:
 $matchMiddleware = new RouteMatchMiddleware(
     new RouteMatcher($config),
     RouteMatchResult::class,
+    true,
 );
 ```
 

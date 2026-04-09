@@ -108,6 +108,25 @@ final class RouteMatchMiddlewareTest extends TestCase
         self::assertSame($response, $middleware->process($request, $handler));
     }
 
+    public function test_it_can_ignore_the_request_uri_site_when_configured(): void
+    {
+        $config = new RouterConfig();
+        $config->path('/ping')
+            ->action('', 'App\\Controller\\DefaultPingAction', '__invoke', ['GET']);
+        $config->site('https://api.example.com')
+            ->path('/ping')
+            ->action('', 'Api\\Controller\\PingAction', '__invoke', ['GET']);
+
+        $middleware = new RouteMatchMiddleware(new RouteMatcher($config), RouteMatchResult::class, false);
+        $request = new FakeServerRequest('/ping', 'GET', 'https', 'api.example.com');
+        $response = $this->createMock(ResponseInterface::class);
+        $expectedMatch = RouteMatchResult::found('App\\Controller\\DefaultPingAction', '__invoke', [], []);
+
+        $handler = $this->createHandlerExpectingAttribute(RouteMatchResult::class, $expectedMatch, $response);
+
+        self::assertSame($response, $middleware->process($request, $handler));
+    }
+
     public function test_it_skips_site_strategies_when_request_uri_has_no_site(): void
     {
         $config = new RouterConfig();
